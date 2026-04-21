@@ -115,14 +115,19 @@ module soc_top (
         .dcache_bvalid(dc_bvalid), .dcache_bready(dc_bready), .dcache_bid(dc_bid), .dcache_bresp(dc_bresp)
     );
 
-    // ------------ L2（上游接L1请求，这里简单采用DCache端口；ICache通过直连只读通道） ------------
+    wire l2_s_arready, l2_s_rvalid, l2_s_rlast;
+    wire [31:0] l2_s_rdata;
+    wire [3:0]  l2_s_rid;
+    wire [1:0]  l2_s_rresp;
+
+    // ------------ L2（当前实现中仅接入DCache上游端口） ------------
     l2_cache inst_l2 (
         .clk(clk), .rst_n(rst_n),
         .s_awvalid(dc_awvalid), .s_awready(dc_awready), .s_awaddr(dc_awaddr), .s_awid(dc_awid), .s_awlen(dc_awlen), .s_awsize(dc_awsize), .s_awburst(dc_awburst),
         .s_wvalid(dc_wvalid), .s_wready(dc_wready), .s_wdata(dc_wdata), .s_wstrb(dc_wstrb), .s_wlast(dc_wlast),
         .s_bvalid(dc_bvalid), .s_bready(dc_bready), .s_bid(dc_bid), .s_bresp(dc_bresp),
-        .s_arvalid(dc_arvalid | ic_arvalid), .s_arready(), .s_araddr(dc_arvalid ? dc_araddr : ic_araddr), .s_arid(dc_arvalid ? dc_arid : ic_arid), .s_arlen(dc_arvalid ? dc_arlen : ic_arlen), .s_arsize(dc_arvalid ? dc_arsize : ic_arsize), .s_arburst(dc_arvalid ? dc_arburst : ic_arburst),
-        .s_rvalid(), .s_rready(dc_rready | ic_rready), .s_rdata(), .s_rid(), .s_rresp(), .s_rlast(),
+        .s_arvalid(dc_arvalid), .s_arready(l2_s_arready), .s_araddr(dc_araddr), .s_arid(dc_arid), .s_arlen(dc_arlen), .s_arsize(dc_arsize), .s_arburst(dc_arburst),
+        .s_rvalid(l2_s_rvalid), .s_rready(dc_rready), .s_rdata(l2_s_rdata), .s_rid(l2_s_rid), .s_rresp(l2_s_rresp), .s_rlast(l2_s_rlast),
         .m_awvalid(m0_awvalid), .m_awready(m0_awready), .m_awaddr(m0_awaddr), .m_awid(m0_awid), .m_awlen(m0_awlen), .m_awsize(m0_awsize), .m_awburst(m0_awburst),
         .m_wvalid(m0_wvalid), .m_wready(m0_wready), .m_wdata(m0_wdata), .m_wstrb(m0_wstrb), .m_wlast(m0_wlast),
         .m_bvalid(m0_bvalid), .m_bready(m0_bready), .m_bid(m0_bid), .m_bresp(m0_bresp),
@@ -130,21 +135,21 @@ module soc_top (
         .m_rvalid(m0_rvalid), .m_rready(m0_rready), .m_rdata(m0_rdata), .m_rid(m0_rid), .m_rresp(m0_rresp), .m_rlast(m0_rlast)
     );
 
-    // 将L2读响应返回给D/I（简化：优先给DCache）
-    assign dc_arready = 1'b1;
+    // DCache与L2连接
+    assign dc_arready = l2_s_arready;
+    assign dc_rvalid  = l2_s_rvalid;
+    assign dc_rdata   = l2_s_rdata;
+    assign dc_rid     = l2_s_rid;
+    assign dc_rresp   = l2_s_rresp;
+    assign dc_rlast   = l2_s_rlast;
+
+    // ICache当前作为结构占位，读miss接口先保持空闲响应
     assign ic_arready = 1'b1;
-    assign dc_rvalid  = m0_rvalid;
-    assign dc_rdata   = m0_rdata;
-    assign dc_rid     = m0_rid;
-    assign dc_rresp   = m0_rresp;
-    assign dc_rlast   = m0_rlast;
-    assign ic_rvalid  = m0_rvalid;
-    assign ic_rdata   = m0_rdata;
-    assign ic_rid     = m0_rid;
-    assign ic_rresp   = m0_rresp;
-    assign ic_rlast   = m0_rlast;
-    assign m0_rready  = dc_rready | ic_rready;
-    assign m0_bready  = 1'b1;
+    assign ic_rvalid  = 1'b0;
+    assign ic_rdata   = 32'd0;
+    assign ic_rid     = 4'd0;
+    assign ic_rresp   = `AXI_RESP_OKAY;
+    assign ic_rlast   = 1'b0;
 
     // ------------ DMA ------------
     dma_ctrl inst_dma (

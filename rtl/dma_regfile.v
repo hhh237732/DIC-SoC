@@ -70,6 +70,7 @@ module dma_regfile (
     reg status_error;
 
     reg [31:0] awaddr_latched;
+    wire [31:0] wr_addr_eff = (s_awvalid && s_awready) ? s_awaddr : awaddr_latched;
 
     wire write_ok = (s_awlen == 8'd0) && (s_awsize == 3'd2) && (s_awburst == `AXI_BURST_INCR);
     wire read_ok  = (s_arlen == 8'd0) && (s_arsize == 3'd2) && (s_arburst == `AXI_BURST_INCR);
@@ -123,7 +124,7 @@ module dma_regfile (
 
             if (s_awvalid && s_awready && s_wvalid && s_wready && s_wlast) begin
                 if (write_ok) begin
-                    case (awaddr_latched[7:2])
+                    case (wr_addr_eff[7:2])
                         (`DMA_REG_CTRL[5:2]): begin
                             if (s_wdata[0]) dma_start <= 1'b1;
                             if (s_wdata[1]) dma_abort <= 1'b1;
