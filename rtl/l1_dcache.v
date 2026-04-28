@@ -47,7 +47,11 @@ module l1_dcache (
     input             dcache_bvalid,
     output reg        dcache_bready,
     input  [3:0]      dcache_bid,
-    input  [1:0]      dcache_bresp
+    input  [1:0]      dcache_bresp,
+
+    // Performance counters
+    output reg [31:0] perf_hit_cnt,
+    output reg [31:0] perf_miss_cnt
 );
 
     localparam SETS = 32;
@@ -96,6 +100,7 @@ module l1_dcache (
             dcache_wstrb<=4'hF; dcache_wlast<=0;
             pend_we<=0; pend_wstrb<=0; pend_addr<=0; pend_wdata<=0;
             victim<=0; beat<=0;
+            perf_hit_cnt<=32'd0; perf_miss_cnt<=32'd0;
             for (s=0;s<SETS;s=s+1) begin
                 lru_arr[s]<=0;
                 for (w=0;w<2;w=w+1) begin
@@ -113,6 +118,7 @@ module l1_dcache (
                 end
                 TAG: begin
                     if (hit) begin
+                        perf_hit_cnt <= perf_hit_cnt + 1'b1;
                         if (!pend_we) begin
                             cpu_rdata <= data_arr[idx][hit_way][woff];
                         end else begin
@@ -125,6 +131,7 @@ module l1_dcache (
                         lru_arr[idx] <= ~hit_way;
                         state<=IDLE;
                     end else begin
+                        perf_miss_cnt <= perf_miss_cnt + 1'b1;
                         victim <= lru_arr[idx];
                         if (val_arr[idx][lru_arr[idx]] && dirty_arr[idx][lru_arr[idx]]) begin
                             dcache_awaddr <= {tag_arr[idx][lru_arr[idx]], idx, 5'b0};

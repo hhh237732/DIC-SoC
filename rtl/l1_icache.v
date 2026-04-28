@@ -27,7 +27,11 @@ module l1_icache (
     input  [31:0]     icache_rdata,
     input  [3:0]      icache_rid,
     input  [1:0]      icache_rresp,
-    input             icache_rlast
+    input             icache_rlast,
+
+    // Performance counters
+    output reg [31:0] perf_hit_cnt,
+    output reg [31:0] perf_miss_cnt
 );
 
     localparam SETS = 32;
@@ -75,6 +79,8 @@ module l1_icache (
             miss_addr      <= 32'd0;
             fill_cnt       <= 3'd0;
             victim_way     <= 1'b0;
+            perf_hit_cnt   <= 32'd0;
+            perf_miss_cnt  <= 32'd0;
             for (s = 0; s < SETS; s = s + 1) begin
                 lru_arr[s] <= 1'b0;
                 for (w = 0; w < 2; w = w + 1) begin
@@ -87,9 +93,14 @@ module l1_icache (
             case (state)
                 ST_IDLE: begin
                     if (cpu_req) begin
-                        if (way0_hit) lru_arr[idx] <= 1'b1;
-                        else if (way1_hit) lru_arr[idx] <= 1'b0;
-                        else begin
+                        if (way0_hit) begin
+                            lru_arr[idx] <= 1'b1;
+                            perf_hit_cnt <= perf_hit_cnt + 1'b1;
+                        end else if (way1_hit) begin
+                            lru_arr[idx] <= 1'b0;
+                            perf_hit_cnt <= perf_hit_cnt + 1'b1;
+                        end else begin
+                            perf_miss_cnt  <= perf_miss_cnt + 1'b1;
                             miss_addr      <= {cpu_addr[31:5], 5'b0};
                             victim_way     <= lru_arr[idx];
                             icache_araddr  <= {cpu_addr[31:5], 5'b0};

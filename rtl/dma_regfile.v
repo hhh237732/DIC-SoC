@@ -125,11 +125,11 @@ module dma_regfile (
             if (s_awvalid && s_awready && s_wvalid && s_wready && s_wlast) begin
                 if (write_ok) begin
                     case (wr_addr_eff[7:2])
-                        (`DMA_REG_CTRL[5:2]): begin
+                        6'd0: begin  // DMA_REG_CTRL
                             if (s_wdata[0]) dma_start <= 1'b1;
                             if (s_wdata[1]) dma_abort <= 1'b1;
                         end
-                        (`DMA_REG_STATUS[5:2]): begin
+                        6'd1: begin  // DMA_REG_STATUS
                             if (s_wdata[1]) begin
                                 status_done <= 1'b0;
                                 done_clr    <= 1'b1;
@@ -139,10 +139,10 @@ module dma_regfile (
                                 err_clr      <= 1'b1;
                             end
                         end
-                        (`DMA_REG_SRCADDR[5:2]): reg_src_addr <= s_wdata;
-                        (`DMA_REG_DSTADDR[5:2]): reg_dst_addr <= s_wdata;
-                        (`DMA_REG_LEN[5:2])    : reg_length   <= s_wdata;
-                        (`DMA_REG_INTEN[5:2])  : reg_int_en   <= s_wdata[1:0];
+                        6'd2: reg_src_addr <= s_wdata;  // DMA_REG_SRCADDR
+                        6'd3: reg_dst_addr <= s_wdata;  // DMA_REG_DSTADDR
+                        6'd4: reg_length   <= s_wdata;  // DMA_REG_LEN
+                        6'd5: reg_int_en   <= s_wdata[1:0]; // DMA_REG_INTEN
                         default: ;
                     endcase
                     s_bresp <= `AXI_RESP_OKAY;
@@ -159,13 +159,13 @@ module dma_regfile (
                 s_rlast <= 1'b1;
                 if (read_ok) begin
                     case (s_araddr[7:2])
-                        (`DMA_REG_CTRL[5:2])   : s_rdata <= 32'd0;
-                        (`DMA_REG_STATUS[5:2]) : s_rdata <= {29'd0, status_error, status_done, dma_busy};
-                        (`DMA_REG_SRCADDR[5:2]): s_rdata <= reg_src_addr;
-                        (`DMA_REG_DSTADDR[5:2]): s_rdata <= reg_dst_addr;
-                        (`DMA_REG_LEN[5:2])    : s_rdata <= reg_length;
-                        (`DMA_REG_INTEN[5:2])  : s_rdata <= {30'd0, reg_int_en};
-                        default                 : s_rdata <= 32'd0;
+                        6'd0: s_rdata <= 32'd0;                                            // DMA_REG_CTRL
+                        6'd1: s_rdata <= {29'd0, status_error, status_done, dma_busy};    // DMA_REG_STATUS
+                        6'd2: s_rdata <= reg_src_addr;                                     // DMA_REG_SRCADDR
+                        6'd3: s_rdata <= reg_dst_addr;                                     // DMA_REG_DSTADDR
+                        6'd4: s_rdata <= reg_length;                                       // DMA_REG_LEN
+                        6'd5: s_rdata <= {30'd0, reg_int_en};                              // DMA_REG_INTEN
+                        default: s_rdata <= 32'd0;
                     endcase
                     s_rresp <= `AXI_RESP_OKAY;
                 end else begin

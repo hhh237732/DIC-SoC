@@ -69,7 +69,11 @@ module l2_cache (
     input  [31:0]     m_rdata,
     input  [3:0]      m_rid,
     input  [1:0]      m_rresp,
-    input             m_rlast
+    input             m_rlast,
+
+    // Performance counters
+    output reg [31:0] perf_hit_cnt,
+    output reg [31:0] perf_miss_cnt
 );
 
     localparam SETS=64, WAYS=4, WORDS=16, TAGW=20;
@@ -137,6 +141,7 @@ module l2_cache (
             m_arvalid<=0; m_araddr<=0; m_arid<=0; m_arlen<=8'd15; m_arsize<=3'd2; m_arburst<=`AXI_BURST_INCR;
             req_is_wr<=0; req_addr<=0; req_wdata<=0; req_wstrb<=0; req_id<=0; req_resp<=`AXI_RESP_OKAY;
             hit_way<=0; victim_way<=0; beat<=0;
+            perf_hit_cnt<=32'd0; perf_miss_cnt<=32'd0;
             for(s=0;s<SETS;s=s+1) begin
                 plru_arr[s]<=3'b000;
                 for(w=0;w<WAYS;w=w+1) begin
@@ -155,6 +160,7 @@ module l2_cache (
                 end
                 TAG: begin
                     if (hit) begin
+                        perf_hit_cnt <= perf_hit_cnt + 1'b1;
                         hit_way <= h0?2'd0:(h1?2'd1:(h2?2'd2:2'd3));
                         if (req_is_wr) begin
                             if (req_wstrb[0]) data_arr[idx][h0?0:h1?1:h2?2:3][off][7:0] <= req_wdata[7:0];
@@ -170,6 +176,7 @@ module l2_cache (
                             st<=RESP_R;
                         end
                     end else begin
+                        perf_miss_cnt <= perf_miss_cnt + 1'b1;
                         victim_way <= plru_pick(plru_arr[idx]);
                         if (val_arr[idx][plru_pick(plru_arr[idx])] && dirty_arr[idx][plru_pick(plru_arr[idx])]) begin
                             m_awaddr <= {tag_arr[idx][plru_pick(plru_arr[idx])], idx, 6'b0};
