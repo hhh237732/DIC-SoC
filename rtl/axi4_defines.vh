@@ -56,7 +56,7 @@
 `define DMA_REG_DSTADDR    6'h0C
 `define DMA_REG_LEN        6'h10
 `define DMA_REG_BURST_MAX  6'h14
-`define DMA_REG_IRQ_MASK   8'h18
-`define DMA_REG_IRQ_STATUS 8'h1C
+`define DMA_REG_IRQ_MASK   6'h18
+`define DMA_REG_IRQ_STATUS 6'h1C
 
 `endif
