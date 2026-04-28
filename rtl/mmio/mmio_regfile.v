@@ -5,7 +5,7 @@
 // Author: hhh237732
 // Purpose: AXI4-Lite slave MMIO register file.
 //
-// Register map (byte address relative to slave base 0x2000_0000):
+// Register map (byte address relative to slave base 0x4000_1000):
 //   0x00 ID_REG        RO  32'h444D4153 ("DMAS")
 //   0x04 VERSION       RO  32'h00000109 (v1.9)
 //   0x08 SCRATCH       RW  general-purpose scratch

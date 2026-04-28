@@ -16,6 +16,7 @@ module dma_master (
     input  [31:0] src_addr,
     input  [31:0] dst_addr,
     input  [31:0] length,
+    input  [7:0]  burst_max,
     output        dma_busy,
     output reg    dma_done,
     output reg    dma_error,
@@ -83,15 +84,16 @@ module dma_master (
     function [8:0] calc_beats;
         input [31:0] addr;
         input [31:0] remain_words;
+        input [7:0]  bmax;
         reg [11:0]   off;
         reg [8:0]    by_4k;
-        reg [31:0]   minv;
+        reg [32:0]   minv;
         begin
             off   = addr[11:0];
-            by_4k = (12'd4096 - off) >> 2;
+            by_4k = (13'd4096 - off) >> 2;
             minv  = remain_words;
-            if (minv > by_4k) minv = by_4k;
-            if (minv > 32'd256) minv = 32'd256;
+            if (minv > {1'b0, by_4k}) minv = {1'b0, by_4k};
+            if (minv > {1'b0, bmax})  minv = {1'b0, bmax};
             calc_beats = minv[8:0];
         end
     endfunction
@@ -166,9 +168,9 @@ module dma_master (
                 end
                 RD_ADDR: begin
                     if (!m_arvalid && (rd_rem_words != 0)) begin
-                        rd_beats_left <= calc_beats(rd_curr_addr, rd_rem_words);
+                        rd_beats_left <= calc_beats(rd_curr_addr, rd_rem_words, burst_max);
                         m_araddr      <= rd_curr_addr;
-                        m_arlen       <= calc_beats(rd_curr_addr, rd_rem_words) - 1'b1;
+                        m_arlen       <= calc_beats(rd_curr_addr, rd_rem_words, burst_max) - 1'b1;
                         m_arvalid     <= 1'b1;
                     end
                     if (m_arvalid && m_arready) begin
@@ -207,8 +209,8 @@ module dma_master (
                     if (wr_rem_words == 0) begin
                         wr_state <= WR_DONE;
                     end else begin
-                        wr_beats_total <= calc_beats(wr_curr_addr, wr_rem_words);
-                        if (fifo_data_count >= calc_beats(wr_curr_addr, wr_rem_words)) begin
+                        wr_beats_total <= calc_beats(wr_curr_addr, wr_rem_words, burst_max);
+                        if (fifo_data_count >= calc_beats(wr_curr_addr, wr_rem_words, burst_max)) begin
                             wr_state <= WR_ADDR;
                         end
                     end

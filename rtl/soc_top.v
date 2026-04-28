@@ -7,8 +7,8 @@
 //   L1 I/D caches -> l2_arbiter -> L2 cache -> AXI interconnect
 //   DMA engine -> AXI interconnect
 //   Interconnect slave 0: main_mem  (0x0000_0000 - 0x0FFF_FFFF)
-//   Interconnect slave 1: dma_ctrl  (0x1000_0000 - 0x1000_00FF)
-//   Interconnect slave 2: mmio_regfile (0x2000_0000 - 0x2000_FFFF)
+//   Interconnect slave 1: dma_ctrl  (0x4000_0000 - 0x4000_00FF)
+//   Interconnect slave 2: mmio_regfile (0x4000_1000 - 0x4000_10FF)
 //   PLIC aggregates interrupts to cpu_irq.
 // ================================================================
 module soc_top (
@@ -457,7 +457,7 @@ module soc_top (
     );
 
     // ------------------------------------------------------------------
-    // MMIO register file - Slave 2 (0x2000_0000 - 0x2000_FFFF)
+    // MMIO register file - Slave 2 (0x4000_1000 - 0x4000_10FF)
     // ------------------------------------------------------------------
     mmio_regfile inst_mmio (
         .clk(clk), .rst_n(rst_n),

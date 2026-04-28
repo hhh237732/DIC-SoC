@@ -3,7 +3,7 @@
 // ================================================================
 // 模块名称：l1_dcache
 // 功能说明：
-//   2KB 2-way DCache，写回+写分配。
+//   8KB 2-way DCache，写回+写分配。
 //   - 命中：IDLE内直接处理（读数据组合输出，写更新dirty）
 //   - 可缓存缺失：IDLE→WB_AW/FILL_AR→FILL_R→IDLE（写分配在FILL_R完成）
 //   - 非缓存旁路（addr≥0x1000_0000）：NC单拍AXI事务，绕过cache阵列
@@ -56,9 +56,9 @@ module l1_dcache (
     output reg [31:0] perf_miss_cnt
 );
 
-    localparam SETS  = 32;
+    localparam SETS  = 128;
     localparam WORDS = 8;
-    localparam TAGW  = 22;
+    localparam TAGW  = 20;
 
     // 状态编码
     localparam IDLE    = 4'd0;
@@ -97,9 +97,9 @@ module l1_dcache (
     // ----------------------------------------------------------------
     // 基于 cpu_addr 的组合命中检测（IDLE 态使用，避免使用stale pend_addr）
     // ----------------------------------------------------------------
-    wire [4:0]  cidx   = cpu_addr[9:5];
+    wire [6:0]  cidx   = cpu_addr[11:5];
     wire [2:0]  cwoff  = cpu_addr[4:2];
-    wire [21:0] ctag   = cpu_addr[31:10];
+    wire [19:0] ctag   = cpu_addr[31:12];
 
     wire cw0_hit = val_arr[cidx][0] && (tag_arr[cidx][0] == ctag);
     wire cw1_hit = val_arr[cidx][1] && (tag_arr[cidx][1] == ctag);
@@ -109,9 +109,9 @@ module l1_dcache (
     // ----------------------------------------------------------------
     // 缺失处理阶段基于 pend_addr 的派生信号
     // ----------------------------------------------------------------
-    wire [4:0]  idx  = pend_addr[9:5];
+    wire [6:0]  idx  = pend_addr[11:5];
     wire [2:0]  woff = pend_addr[4:2];
-    wire [21:0] tag  = pend_addr[31:10];
+    wire [19:0] tag  = pend_addr[31:12];
 
     // ----------------------------------------------------------------
     // 外部接口信号

@@ -52,6 +52,7 @@ module dma_regfile (
     output [31:0]     dma_length,
     output            done_ie,
     output            err_ie,
+    output [7:0]      dma_burst_max,
     input             dma_busy,
     input             dma_done,
     input             dma_error,
@@ -64,7 +65,9 @@ module dma_regfile (
     reg [31:0] reg_src_addr;
     reg [31:0] reg_dst_addr;
     reg [31:0] reg_length;
-    reg [1:0]  reg_int_en;
+    reg [7:0]  reg_burst_max;   // BURST_MAX: limits per-burst beat count (default 255)
+    reg [1:0]  reg_irq_mask;    // IRQ_MASK: bit0=done_en, bit1=err_en
+    reg [1:0]  reg_irq_status;  // IRQ_STATUS: bit0=done_pend W1C, bit1=err_pend W1C
 
     reg status_done;
     reg status_error;
@@ -81,15 +84,18 @@ module dma_regfile (
     assign dma_src_addr = reg_src_addr;
     assign dma_dst_addr = reg_dst_addr;
     assign dma_length   = reg_length;
-    assign done_ie      = reg_int_en[0];
-    assign err_ie       = reg_int_en[1];
+    assign done_ie      = reg_irq_mask[0];
+    assign err_ie       = reg_irq_mask[1];
+    assign dma_burst_max = reg_burst_max;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             reg_src_addr   <= 32'd0;
             reg_dst_addr   <= 32'd0;
             reg_length     <= 32'd0;
-            reg_int_en     <= 2'b00;
+            reg_burst_max  <= 8'd255;
+            reg_irq_mask   <= 2'b00;
+            reg_irq_status <= 2'b00;
             status_done    <= 1'b0;
             status_error   <= 1'b0;
             dma_start      <= 1'b0;
@@ -123,6 +129,9 @@ module dma_regfile (
             if (dma_done)  status_done  <= 1'b1;
             if (dma_error) status_error <= 1'b1;
 
+            if (dma_done  && reg_irq_mask[0]) reg_irq_status[0] <= 1'b1;
+            if (dma_error && reg_irq_mask[1]) reg_irq_status[1] <= 1'b1;
+
             // ---- AW channel: latch address when accepted ----
             if (!aw_pending && s_awvalid && s_awready) begin
                 awaddr_latched <= s_awaddr;
@@ -152,7 +161,12 @@ module dma_regfile (
                         6'd2: reg_src_addr <= s_wdata;  // DMA_REG_SRCADDR
                         6'd3: reg_dst_addr <= s_wdata;  // DMA_REG_DSTADDR
                         6'd4: reg_length   <= s_wdata;  // DMA_REG_LEN
-                        6'd5: reg_int_en   <= s_wdata[1:0]; // DMA_REG_INTEN
+                        6'd5: reg_burst_max <= s_wdata[7:0];   // BURST_MAX
+                        6'd6: reg_irq_mask  <= s_wdata[1:0];    // IRQ_MASK
+                        6'd7: begin  // IRQ_STATUS W1C
+                            if (s_wdata[0]) reg_irq_status[0] <= 1'b0;
+                            if (s_wdata[1]) reg_irq_status[1] <= 1'b0;
+                        end
                         default: ;
                     endcase
                     s_bresp <= `AXI_RESP_OKAY;
@@ -176,7 +190,9 @@ module dma_regfile (
                         6'd2: s_rdata <= reg_src_addr;                                     // DMA_REG_SRCADDR
                         6'd3: s_rdata <= reg_dst_addr;                                     // DMA_REG_DSTADDR
                         6'd4: s_rdata <= reg_length;                                       // DMA_REG_LEN
-                        6'd5: s_rdata <= {30'd0, reg_int_en};                              // DMA_REG_INTEN
+                        6'd5: s_rdata <= {24'd0, reg_burst_max};          // BURST_MAX
+                        6'd6: s_rdata <= {30'd0, reg_irq_mask};           // IRQ_MASK
+                        6'd7: s_rdata <= {30'd0, reg_irq_status};         // IRQ_STATUS
                         default: s_rdata <= 32'd0;
                     endcase
                     s_rresp <= `AXI_RESP_OKAY;

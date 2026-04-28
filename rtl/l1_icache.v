@@ -3,7 +3,7 @@
 // ================================================================
 // 模块名称：l1_icache
 // 功能说明：
-//   2KB 2-way 指令Cache，只读。
+//   8KB 2-way 指令Cache，只读。
 //   命中单周期返回；miss时AXI读8拍回填整行。
 // ================================================================
 module l1_icache (
@@ -34,9 +34,9 @@ module l1_icache (
     output reg [31:0] perf_miss_cnt
 );
 
-    localparam SETS = 32;
+    localparam SETS = 128;
     localparam WORDS = 8;
-    localparam TAGW = 22;
+    localparam TAGW = 20;
 
     localparam ST_IDLE = 2'd0;
     localparam ST_REQ  = 2'd1;
@@ -53,9 +53,9 @@ module l1_icache (
     reg [2:0]  fill_cnt;
     reg        victim_way;
 
-    wire [4:0] idx  = cpu_addr[9:5];
+    wire [6:0] idx  = cpu_addr[11:5];
     wire [2:0] woff = cpu_addr[4:2];
-    wire [21:0] tag = cpu_addr[31:10];
+    wire [19:0] tag = cpu_addr[31:12];
 
     wire way0_hit = val_arr[idx][0] && (tag_arr[idx][0] == tag);
     wire way1_hit = val_arr[idx][1] && (tag_arr[idx][1] == tag);
@@ -122,12 +122,12 @@ module l1_icache (
                 end
                 ST_FILL: begin
                     if (icache_rvalid && icache_rready) begin
-                        data_arr[miss_addr[9:5]][victim_way][fill_cnt] <= icache_rdata;
+                        data_arr[miss_addr[11:5]][victim_way][fill_cnt] <= icache_rdata;
                         fill_cnt <= fill_cnt + 1'b1;
                         if (icache_rlast) begin
-                            tag_arr[miss_addr[9:5]][victim_way] <= miss_addr[31:10];
-                            val_arr[miss_addr[9:5]][victim_way] <= 1'b1;
-                            lru_arr[miss_addr[9:5]] <= ~victim_way;
+                            tag_arr[miss_addr[11:5]][victim_way] <= miss_addr[31:12];
+                            val_arr[miss_addr[11:5]][victim_way] <= 1'b1;
+                            lru_arr[miss_addr[11:5]] <= ~victim_way;
                             state <= ST_IDLE;
                         end
                     end
