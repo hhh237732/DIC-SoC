@@ -20,6 +20,9 @@ set_output_delay -clock clk -min 0.1 [all_outputs]
 set_false_path -from [get_ports rst_n]
 
 # ---- Drive/load ----
+# NOTE: Replace BUFX4 with an actual buffer cell from your target PDK library
+#       (e.g. sky130_fd_sc_hd__buf_4 for SkyWater 130nm).
+#       The cell name must match an entry in the .db files listed in setup.tcl.
 set_driving_cell -lib_cell BUFX4 -pin Z [all_inputs]
 set_load 0.05 [all_outputs]
 

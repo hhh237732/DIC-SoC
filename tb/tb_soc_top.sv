@@ -161,8 +161,19 @@ module tb_soc_top;
         dwrite(32'h1000_0010, 32'd16);        // LEN (16 words)
         dwrite(32'h1000_0014, 32'h3);         // INT_EN
         dwrite(32'h1000_0000, 32'h1);         // START
-        wait_clk(500);
-        $display("      DMA IRQ=%b CPU_IRQ=%b", dma_irq, cpu_irq);
+        // Wait for DMA IRQ (max 2000 cycles)
+        begin : wait_dma_irq
+            int t;
+            t = 0;
+            while (!dma_irq) begin
+                @(posedge clk); t++;
+                if (t > 2000) begin
+                    $display("      [TC7] DMA IRQ timeout after %0d cycles", t);
+                    fail_cnt++; disable wait_dma_irq;
+                end
+            end
+            $display("      DMA done after %0d cycles. DMA_IRQ=%b CPU_IRQ=%b", t, dma_irq, cpu_irq);
+        end
 
         // ---- TC8: ICache + DCache simultaneous miss ----
         $display("[TC8] ICache miss at new line while DCache active");

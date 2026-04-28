@@ -474,7 +474,7 @@ module soc_top (
         .l1d_hit_cnt(dc_hit_cnt),  .l1d_miss_cnt(dc_miss_cnt),
         .l2_hit_cnt(l2_hit_cnt),   .l2_miss_cnt(l2_miss_cnt),
         .dma_irq(dma_irq),
-        .dma_status_in(32'd0)
+        .dma_status_in(32'd0)   // DMA ctrl has no separate status export; unused
     );
 
     // ------------------------------------------------------------------

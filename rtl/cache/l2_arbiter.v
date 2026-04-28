@@ -145,7 +145,7 @@ module l2_arbiter #(
 
     // AR ready feedback to slaves (only in IDLE when they win)
     assign s0_arready = (rd_state == RD_IDLE) && sel_s0 && m_arready;
-    assign s1_arready = (rd_state == RD_IDLE) && sel_s1 && !sel_s0 && m_arready;
+    assign s1_arready = (rd_state == RD_IDLE) && sel_s1 && m_arready;
 
     // ----------------------------------------------------------------
     // R channel routing by grant state
