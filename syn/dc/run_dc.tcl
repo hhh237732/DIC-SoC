@@ -1,51 +1,36 @@
-# ================================================================
-# run_dc.tcl - Synopsys Design Compiler synthesis script
-# Author: hhh237732
-# Target: TSMC 28nm (or any stdcell library)
-# Usage:  dc_shell -f run_dc.tcl
-# ================================================================
+# ============================================================
+# DC综合脚本 — DIC-SoC
+# ============================================================
 
-source setup.tcl
+# 工艺库（请根据实际环境修改）
+set target_library "your_tech.db"
+set link_library   "* $target_library"
 
-# ---- Analyze & Elaborate ----
-analyze -format verilog -library WORK [list \
-    ${RTL_DIR}/axi4_defines.vh \
-    ${RTL_DIR}/sync_fifo.v \
-    ${RTL_DIR}/dma_intr.v \
-    ${RTL_DIR}/dma_regfile.v \
-    ${RTL_DIR}/dma_master.v \
-    ${RTL_DIR}/dma_ctrl.v \
-    ${RTL_DIR}/l1_icache.v \
-    ${RTL_DIR}/l1_dcache.v \
-    ${RTL_DIR}/l2_cache.v \
-    ${RTL_DIR}/cache/l2_arbiter.v \
-    ${RTL_DIR}/mmio/mmio_regfile.v \
-    ${RTL_DIR}/intc/plic_lite.v \
-    ${RTL_DIR}/axi4_interconnect.v \
-    ${RTL_DIR}/main_mem.v \
-    ${RTL_DIR}/soc_top.v \
-]
+# 读RTL源文件
+set RTL_DIR "../../rtl"
+read_verilog [glob $RTL_DIR/*.v]
 
+# 顶层模块展开
 elaborate soc_top
-
-current_design soc_top
 link
+check_design
 
-# ---- Apply Constraints ----
-source constraints.sdc
+# 应用SDC约束
+read_sdc constraints.sdc
 
-# ---- Compile ----
+# compile_ultra 综合优化
 compile_ultra -no_autoungroup
 
-# ---- Reports ----
+# 输出reports到syn/dc/reports/
+file mkdir reports
 report_timing  -max_paths 10        > reports/timing.rpt
 report_area                         > reports/area.rpt
-report_power   -analysis_effort low > reports/power.rpt
+report_power                        > reports/power.rpt
 report_qor                          > reports/qor.rpt
-check_design                        > reports/check.rpt
+report_constraint -all_violators    > reports/violations.rpt
 
-# ---- Write Outputs ----
+# 输出网表与SDF
 write -format verilog -hierarchy -output reports/soc_top_netlist.v
-write_sdc reports/soc_top_out.sdc
+write_sdf reports/soc_top.sdf
 
-echo "DC synthesis complete."
+echo "DC综合完成，结果见 syn/dc/reports/"
