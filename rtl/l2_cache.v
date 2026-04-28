@@ -78,6 +78,8 @@ module l2_cache (
 
     localparam SETS=64, WAYS=4, WORDS=16, TAGW=20;
     localparam IDLE=4'd0, TAG=4'd1, WB_AW=4'd2, WB_W=4'd3, WB_B=4'd4, RD_AR=4'd5, RD_R=4'd6, RESP_R=4'd7, RESP_W=4'd8;
+    // 新增状态：FILL_DONE修复NBA读竞争；NC_*实现非缓存旁路直通
+    localparam FILL_DONE=4'd9, NC_WR_AW=4'd10, NC_WR_B=4'd11, NC_RD_AR=4'd12, NC_RD_R=4'd13;
     reg [3:0] st;
 
     reg [TAGW-1:0] tag_arr [0:SETS-1][0:WAYS-1];
@@ -99,6 +101,9 @@ module l2_cache (
     wire [5:0] idx = req_addr[11:6];
     wire [3:0] off = req_addr[5:2];
     wire [19:0] tag = req_addr[31:12];
+
+    // 非缓存区域判定（与L1D保持一致）
+    wire nc_req = (req_addr[31:28] != 4'h0);
 
     wire h0 = val_arr[idx][0] && tag_arr[idx][0]==tag;
     wire h1 = val_arr[idx][1] && tag_arr[idx][1]==tag;
@@ -128,7 +133,7 @@ module l2_cache (
         end
     endfunction
 
-    assign m_rready = (st==RD_R);
+    assign m_rready = (st==RD_R) || (st==NC_RD_R);
 
     integer s,w,ww;
     always @(posedge clk or negedge rst_n) begin
@@ -159,7 +164,30 @@ module l2_cache (
                     end
                 end
                 TAG: begin
-                    if (hit) begin
+                    if (nc_req) begin
+                        // 非缓存地址：直通到下游AXI主存/设备
+                        if (req_is_wr) begin
+                            m_awvalid <= 1'b1;
+                            m_awaddr  <= req_addr;
+                            m_awlen   <= 8'd0;
+                            m_awsize  <= 3'd2;
+                            m_awburst <= `AXI_BURST_INCR;
+                            m_awid    <= 4'h3;
+                            m_wvalid  <= 1'b1;
+                            m_wdata   <= req_wdata;
+                            m_wstrb   <= req_wstrb;
+                            m_wlast   <= 1'b1;
+                            st <= NC_WR_AW;
+                        end else begin
+                            m_arvalid <= 1'b1;
+                            m_araddr  <= req_addr;
+                            m_arlen   <= 8'd0;
+                            m_arsize  <= 3'd2;
+                            m_arburst <= `AXI_BURST_INCR;
+                            m_arid    <= 4'h3;
+                            st <= NC_RD_AR;
+                        end
+                    end else if (hit) begin
                         perf_hit_cnt <= perf_hit_cnt + 1'b1;
                         hit_way <= h0?2'd0:(h1?2'd1:(h2?2'd2:2'd3));
                         if (req_is_wr) begin
@@ -227,10 +255,20 @@ module l2_cache (
                                 dirty_arr[idx][victim_way] <= 1'b1;
                                 st<=RESP_W;
                             end else begin
-                                s_rid<=req_id; s_rdata<=data_arr[idx][victim_way][off]; s_rresp<=req_resp; s_rlast<=1'b1; s_rvalid<=1'b1; st<=RESP_R;
+                                // 进入FILL_DONE等待1拍，确保NBA写入data_arr已提交
+                                st<=FILL_DONE;
                             end
                         end
                     end
+                end
+                // FILL_DONE：data_arr中的填充数据已由RD_R的NBA提交，可安全读取
+                FILL_DONE: begin
+                    s_rid    <= req_id;
+                    s_rdata  <= data_arr[idx][victim_way][off];
+                    s_rresp  <= req_resp;
+                    s_rlast  <= 1'b1;
+                    s_rvalid <= 1'b1;
+                    st <= RESP_R;
                 end
                 RESP_R: begin
                     if (s_rvalid && s_rready) begin s_rvalid<=0; s_rlast<=0; st<=IDLE; end
@@ -238,6 +276,43 @@ module l2_cache (
                 RESP_W: begin
                     s_bid<=req_id; s_bresp<=req_resp; s_bvalid<=1'b1;
                     if (s_bvalid && s_bready) begin s_bvalid<=0; st<=IDLE; end
+                end
+                // --------------------------------------------------------
+                // 非缓存（NC）直通状态：将事务透传到下游AXI总线
+                // --------------------------------------------------------
+                // NC写：AW + W 同拍发出，等待两路握手后进入B等待
+                NC_WR_AW: begin
+                    if (m_awvalid && m_awready) m_awvalid <= 0;
+                    if (m_wvalid  && m_wready)  begin m_wvalid <= 0; m_wlast <= 0; end
+                    if ((!m_awvalid || m_awready) && (!m_wvalid || m_wready)) begin
+                        m_bready <= 1'b1;
+                        st <= NC_WR_B;
+                    end
+                end
+                NC_WR_B: begin
+                    if (m_bvalid && m_bready) begin
+                        m_bready <= 0;
+                        req_resp <= m_bresp;
+                        st <= RESP_W;
+                    end
+                end
+                // NC读：单拍AR，接收R数据后直接回给上游
+                NC_RD_AR: begin
+                    if (m_arvalid && m_arready) begin
+                        m_arvalid <= 0;
+                        st <= NC_RD_R;
+                    end
+                end
+                NC_RD_R: begin
+                    if (m_rvalid && m_rready) begin
+                        // 直接捕获m_rdata（不经过data_arr，无NBA竞争）
+                        s_rdata  <= m_rdata;
+                        s_rid    <= req_id;
+                        s_rresp  <= m_rresp;
+                        s_rlast  <= 1'b1;
+                        s_rvalid <= 1'b1;
+                        st <= RESP_R;
+                    end
                 end
             endcase
         end

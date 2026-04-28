@@ -1,26 +1,28 @@
-# Synopsys Design Compiler Synthesis
+# DC 综合说明
 
-## Prerequisites
-- Synopsys DC 2019.12 or later
-- Target standard-cell library (update `setup.tcl` with your PDK `.db` files)
+## 工艺库变量设置
 
-## Usage
+编辑 `run_dc.tcl`，将 `your_tech.db` 替换为实际工艺库路径：
+```tcl
+set target_library "/path/to/your_tech.db"
+set link_library   "* $target_library"
 ```
+
+## 如何运行
+
+```bash
 cd syn/dc
-make syn        # run synthesis
-make clean      # remove outputs
+make dc
+# 或直接：
+dc_shell -f run_dc.tcl
 ```
 
-## Output Files (in reports/)
-| File | Description |
-|------|-------------|
-| `timing.rpt`  | Timing report (max 10 paths) |
-| `area.rpt`    | Area report |
-| `power.rpt`   | Power estimation |
-| `qor.rpt`     | Quality of results |
-| `check.rpt`   | Design rule checks |
-| `soc_top_netlist.v` | Gate-level netlist |
-| `soc_top_out.sdc`   | Output SDC |
+## 结果回填位置
 
-## Timing Target
-200 MHz (5 ns period) on TSMC 28nm typical corner.
+综合完成后，将以下数据回填至 `doc/项目最终报告.md` 第14章：
+
+| 指标 | 文件 | 回填位置 |
+|------|------|---------|
+| 时序（WNS/TNS） | reports/timing.rpt | 第14章时序表 |
+| 面积（um²/门数） | reports/area.rpt | 第14章面积表 |
+| 功耗（mW） | reports/power.rpt | 第14章功耗表 |

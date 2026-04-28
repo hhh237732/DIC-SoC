@@ -69,8 +69,11 @@ module dma_regfile (
     reg status_done;
     reg status_error;
 
+    // AW latch: hold pending address until W arrives (standard AXI4 behavior)
+    reg        aw_pending;
     reg [31:0] awaddr_latched;
-    wire [31:0] wr_addr_eff = (s_awvalid && s_awready) ? s_awaddr : awaddr_latched;
+    reg [3:0]  awid_latched;
+    reg        write_ok_lat;   // latch write_ok at AW acceptance time
 
     wire write_ok = (s_awlen == 8'd0) && (s_awsize == 3'd2) && (s_awburst == `AXI_BURST_INCR);
     wire read_ok  = (s_arlen == 8'd0) && (s_arsize == 3'd2) && (s_arburst == `AXI_BURST_INCR);
@@ -107,7 +110,10 @@ module dma_regfile (
             s_rresp        <= `AXI_RESP_OKAY;
             s_rlast        <= 1'b1;
 
+            aw_pending     <= 1'b0;
             awaddr_latched <= 32'd0;
+            awid_latched   <= 4'd0;
+            write_ok_lat   <= 1'b0;
         end else begin
             dma_start <= 1'b0;
             dma_abort <= 1'b0;
@@ -117,14 +123,18 @@ module dma_regfile (
             if (dma_done)  status_done  <= 1'b1;
             if (dma_error) status_error <= 1'b1;
 
-            if (s_awvalid && s_awready) begin
+            // ---- AW channel: latch address when accepted ----
+            if (!aw_pending && s_awvalid && s_awready) begin
                 awaddr_latched <= s_awaddr;
-                s_bid          <= s_awid;
+                awid_latched   <= s_awid;
+                write_ok_lat   <= write_ok;
+                aw_pending     <= 1'b1;
             end
 
-            if (s_awvalid && s_awready && s_wvalid && s_wready && s_wlast) begin
-                if (write_ok) begin
-                    case (wr_addr_eff[7:2])
+            // ---- W channel: process when AW is pending ----
+            if (aw_pending && s_wvalid && s_wready && s_wlast) begin
+                if (write_ok_lat) begin
+                    case (awaddr_latched[7:2])
                         6'd0: begin  // DMA_REG_CTRL
                             if (s_wdata[0]) dma_start <= 1'b1;
                             if (s_wdata[1]) dma_abort <= 1'b1;
@@ -149,7 +159,9 @@ module dma_regfile (
                 end else begin
                     s_bresp <= `AXI_RESP_SLVERR;
                 end
-                s_bvalid <= 1'b1;
+                s_bvalid   <= 1'b1;
+                s_bid      <= awid_latched;
+                aw_pending <= 1'b0;
             end
 
             if (s_bvalid && s_bready) s_bvalid <= 1'b0;

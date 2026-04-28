@@ -144,7 +144,13 @@ module soc_top (
     wire        s1_bvalid, s1_bready, s1_arvalid, s1_arready;
     wire        s1_rvalid, s1_rready, s1_rlast;
     wire [31:0] s1_awaddr, s1_wdata, s1_araddr, s1_rdata;
-    wire [4:0]  s1_awid, s1_bid, s1_arid, s1_rid;
+    wire [4:0]  s1_awid, s1_arid;
+    wire [4:0]  s1_rid;   // [4]=master bit（由dma_regfile回填）
+    wire [4:0]  s1_bid;   // [4]=master bit（由dma_regfile回填）
+    // DMA ctrl 仅有4-bit bid/rid输出，bit[4] 固定为0（事务来自M0/L2）
+    wire [3:0]  dma_bid_lo, dma_rid_lo;
+    assign s1_bid = {1'b0, dma_bid_lo};
+    assign s1_rid = {1'b0, dma_rid_lo};
     wire [7:0]  s1_awlen, s1_arlen;
     wire [2:0]  s1_awsize, s1_arsize;
     wire [1:0]  s1_awburst, s1_bresp, s1_arburst, s1_rresp;
@@ -313,13 +319,13 @@ module soc_top (
         .cfg_wdata(s1_wdata),     .cfg_wstrb(s1_wstrb),
         .cfg_wlast(s1_wlast),
         .cfg_bvalid(s1_bvalid),   .cfg_bready(s1_bready),
-        .cfg_bid(s1_bid[3:0]),    .cfg_bresp(s1_bresp),
+        .cfg_bid(dma_bid_lo),    .cfg_bresp(s1_bresp),
         .cfg_arvalid(s1_arvalid), .cfg_arready(s1_arready),
         .cfg_araddr(s1_araddr),   .cfg_arid(s1_arid[3:0]),
         .cfg_arlen(s1_arlen),     .cfg_arsize(s1_arsize),
         .cfg_arburst(s1_arburst),
         .cfg_rvalid(s1_rvalid),   .cfg_rready(s1_rready),
-        .cfg_rdata(s1_rdata),     .cfg_rid(s1_rid[3:0]),
+        .cfg_rdata(s1_rdata),     .cfg_rid(dma_rid_lo),
         .cfg_rresp(s1_rresp),     .cfg_rlast(s1_rlast),
         .dma_arvalid(m1_arvalid), .dma_arready(m1_arready),
         .dma_araddr(m1_araddr),   .dma_arid(m1_arid),
