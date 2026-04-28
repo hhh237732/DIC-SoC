@@ -16,12 +16,14 @@ module tb_soc_top;
     wire [31:0] cpu_data_rdata;
     wire cpu_data_stall;
     wire dma_irq;
+    wire cpu_irq;
 
     soc_top dut (
         .clk(clk), .rst_n(rst_n),
         .cpu_instr_req(cpu_instr_req), .cpu_instr_addr(cpu_instr_addr), .cpu_instr_data(cpu_instr_data), .cpu_instr_stall(cpu_instr_stall),
         .cpu_data_req(cpu_data_req), .cpu_data_we(cpu_data_we), .cpu_data_wstrb(cpu_data_wstrb), .cpu_data_addr(cpu_data_addr), .cpu_data_wdata(cpu_data_wdata), .cpu_data_rdata(cpu_data_rdata), .cpu_data_stall(cpu_data_stall),
-        .dma_irq(dma_irq)
+        .dma_irq(dma_irq),
+        .cpu_irq(cpu_irq)
     );
 
     always #5 clk=~clk;
