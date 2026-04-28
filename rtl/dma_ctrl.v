@@ -79,6 +79,7 @@ module dma_ctrl (
     wire [31:0] reg_src_addr;
     wire [31:0] reg_dst_addr;
     wire [31:0] reg_length;
+    wire [7:0]  reg_burst_max;
     wire done_ie;
     wire err_ie;
     wire done_clr;
@@ -105,7 +106,7 @@ module dma_ctrl (
         .s_rvalid(cfg_rvalid), .s_rready(cfg_rready), .s_rdata(cfg_rdata), .s_rid(cfg_rid), .s_rresp(cfg_rresp), .s_rlast(cfg_rlast),
         .dma_start(reg_dma_start), .dma_abort(reg_dma_abort),
         .dma_src_addr(reg_src_addr), .dma_dst_addr(reg_dst_addr), .dma_length(reg_length),
-        .done_ie(done_ie), .err_ie(err_ie),
+        .done_ie(done_ie), .err_ie(err_ie), .dma_burst_max(reg_burst_max),
         .dma_busy(dma_busy), .dma_done(dma_done), .dma_error(dma_error),
         .done_clr(done_clr), .err_clr(err_clr)
     );
@@ -114,6 +115,7 @@ module dma_ctrl (
         .clk(clk), .rst_n(rst_n),
         .dma_start(reg_dma_start), .dma_abort(reg_dma_abort),
         .src_addr(reg_src_addr), .dst_addr(reg_dst_addr), .length(reg_length),
+        .burst_max(reg_burst_max),
         .dma_busy(dma_busy), .dma_done(dma_done), .dma_error(dma_error),
         .fifo_wr_en(fifo_wr_en), .fifo_wr_data(fifo_wr_data), .fifo_full(fifo_full),
         .fifo_rd_en(fifo_rd_en), .fifo_rd_data(fifo_rd_data), .fifo_empty(fifo_empty), .fifo_data_count(fifo_data_count),

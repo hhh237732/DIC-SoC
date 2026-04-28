@@ -138,17 +138,17 @@ module tb_soc_top;
         end else $display("      PASS: %08h", rdata);
 
         // ---- TC5: MMIO ID register read ----
-        $display("[TC5] MMIO ID read at 0x2000_0000");
-        dread(32'h2000_0000, rdata);
+        $display("[TC5] MMIO ID read at 0x4000_1000");
+        dread(32'h4000_1000, rdata);
         if (rdata !== 32'h444D4153) begin
             $display("      FAIL: got %08h expected 444D4153 (DMAS)", rdata);
             fail_cnt++;
         end else $display("      PASS: ID=%08h", rdata);
 
         // ---- TC6: MMIO SCRATCH read-write ----
-        $display("[TC6] MMIO SCRATCH register at 0x2000_0008");
-        dwrite(32'h2000_0008, 32'hCAFE_BABE);
-        dread(32'h2000_0008, rdata);
+        $display("[TC6] MMIO SCRATCH register at 0x4000_1008");
+        dwrite(32'h4000_1008, 32'hCAFE_BABE);
+        dread(32'h4000_1008, rdata);
         if (rdata !== 32'hCAFE_BABE) begin
             $display("      FAIL: got %08h expected CAFEBABE", rdata);
             fail_cnt++;
@@ -156,11 +156,11 @@ module tb_soc_top;
 
         // ---- TC7: DMA transfer ----
         $display("[TC7] DMA: src=0x100 dst=0x200 len=64");
-        dwrite(32'h1000_0008, 32'h0000_0100); // SRC
-        dwrite(32'h1000_000C, 32'h0000_0200); // DST
-        dwrite(32'h1000_0010, 32'd16);        // LEN (16 words)
-        dwrite(32'h1000_0014, 32'h3);         // INT_EN
-        dwrite(32'h1000_0000, 32'h1);         // START
+        dwrite(32'h4000_0008, 32'h0000_0100); // SRC
+        dwrite(32'h4000_000C, 32'h0000_0200); // DST
+        dwrite(32'h4000_0010, 32'd16);        // LEN (16 words)
+        dwrite(32'h4000_0018, 32'h3);         // IRQ_MASK
+        dwrite(32'h4000_0000, 32'h1);         // START
         // Wait for DMA IRQ (max 2000 cycles)
         begin : wait_dma_irq
             int t;
@@ -182,17 +182,17 @@ module tb_soc_top;
 
         // ---- TC9: MMIO perf counter read ----
         $display("[TC9] MMIO perf counters");
-        dread(32'h2000_0010, rdata);
+        dread(32'h4000_1010, rdata);
         $display("      L1I hit_cnt  = %0d", rdata);
-        dread(32'h2000_0014, rdata);
+        dread(32'h4000_1014, rdata);
         $display("      L1I miss_cnt = %0d", rdata);
-        dread(32'h2000_0018, rdata);
+        dread(32'h4000_1018, rdata);
         $display("      L1D hit_cnt  = %0d", rdata);
-        dread(32'h2000_001C, rdata);
+        dread(32'h4000_101C, rdata);
         $display("      L1D miss_cnt = %0d", rdata);
-        dread(32'h2000_0020, rdata);
+        dread(32'h4000_1020, rdata);
         $display("      L2  hit_cnt  = %0d", rdata);
-        dread(32'h2000_0024, rdata);
+        dread(32'h4000_1024, rdata);
         $display("      L2  miss_cnt = %0d", rdata);
 
         // ---- Summary ----

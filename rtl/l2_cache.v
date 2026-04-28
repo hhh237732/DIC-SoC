@@ -3,7 +3,7 @@
 // ================================================================
 // 模块名称：l2_cache
 // 功能说明：
-//   16KB 4-way L2 Cache。
+//   64KB 4-way L2 Cache, 32B line。
 //   提供AXI Slave（上游L1）与AXI Master（下游主存）接口。
 //   实现写回+写分配，4-way PLRU替换。
 // ================================================================
@@ -76,7 +76,7 @@ module l2_cache (
     output reg [31:0] perf_miss_cnt
 );
 
-    localparam SETS=64, WAYS=4, WORDS=16, TAGW=20;
+    localparam SETS=512, WAYS=4, WORDS=8, TAGW=18;
     localparam IDLE=4'd0, TAG=4'd1, WB_AW=4'd2, WB_W=4'd3, WB_B=4'd4, RD_AR=4'd5, RD_R=4'd6, RESP_R=4'd7, RESP_W=4'd8;
     // 新增状态：FILL_DONE修复NBA读竞争；NC_*实现非缓存旁路直通
     localparam FILL_DONE=4'd9, NC_WR_AW=4'd10, NC_WR_B=4'd11, NC_RD_AR=4'd12, NC_RD_R=4'd13;
@@ -96,11 +96,11 @@ module l2_cache (
     reg [1:0]  req_resp;
     reg [1:0]  hit_way;
     reg [1:0]  victim_way;
-    reg [3:0]  beat;
+    reg [2:0]  beat;
 
-    wire [5:0] idx = req_addr[11:6];
-    wire [3:0] off = req_addr[5:2];
-    wire [19:0] tag = req_addr[31:12];
+    wire [8:0] idx = req_addr[13:5];
+    wire [2:0] off = req_addr[4:2];
+    wire [17:0] tag = req_addr[31:14];
 
     // 非缓存区域判定（与L1D保持一致）
     wire nc_req = (req_addr[31:28] != 4'h0);
@@ -141,9 +141,9 @@ module l2_cache (
             st<=IDLE;
             s_awready<=1; s_wready<=1; s_bvalid<=0; s_bid<=0; s_bresp<=`AXI_RESP_OKAY;
             s_arready<=1; s_rvalid<=0; s_rdata<=0; s_rid<=0; s_rresp<=`AXI_RESP_OKAY; s_rlast<=0;
-            m_awvalid<=0; m_awaddr<=0; m_awid<=0; m_awlen<=8'd15; m_awsize<=3'd2; m_awburst<=`AXI_BURST_INCR;
+            m_awvalid<=0; m_awaddr<=0; m_awid<=0; m_awlen<=8'd7; m_awsize<=3'd2; m_awburst<=`AXI_BURST_INCR;
             m_wvalid<=0; m_wdata<=0; m_wstrb<=4'hF; m_wlast<=0; m_bready<=0;
-            m_arvalid<=0; m_araddr<=0; m_arid<=0; m_arlen<=8'd15; m_arsize<=3'd2; m_arburst<=`AXI_BURST_INCR;
+            m_arvalid<=0; m_araddr<=0; m_arid<=0; m_arlen<=8'd7; m_arsize<=3'd2; m_arburst<=`AXI_BURST_INCR;
             req_is_wr<=0; req_addr<=0; req_wdata<=0; req_wstrb<=0; req_id<=0; req_resp<=`AXI_RESP_OKAY;
             hit_way<=0; victim_way<=0; beat<=0;
             perf_hit_cnt<=32'd0; perf_miss_cnt<=32'd0;
@@ -207,11 +207,11 @@ module l2_cache (
                         perf_miss_cnt <= perf_miss_cnt + 1'b1;
                         victim_way <= plru_pick(plru_arr[idx]);
                         if (val_arr[idx][plru_pick(plru_arr[idx])] && dirty_arr[idx][plru_pick(plru_arr[idx])]) begin
-                            m_awaddr <= {tag_arr[idx][plru_pick(plru_arr[idx])], idx, 6'b0};
-                            m_awid<=4'h3; m_awlen<=8'd15; m_awvalid<=1'b1; st<=WB_AW;
+                            m_awaddr <= {tag_arr[idx][plru_pick(plru_arr[idx])], idx, 5'b0};
+                            m_awid<=4'h3; m_awlen<=8'd7; m_awvalid<=1'b1; st<=WB_AW;
                         end else begin
-                            m_araddr <= {req_addr[31:6],6'b0};
-                            m_arid<=4'h3; m_arlen<=8'd15; m_arvalid<=1'b1; st<=RD_AR;
+                            m_araddr <= {req_addr[31:5],5'b0};
+                            m_arid<=4'h3; m_arlen<=8'd7; m_arvalid<=1'b1; st<=RD_AR;
                         end
                     end
                 end
@@ -220,10 +220,10 @@ module l2_cache (
                 end
                 WB_W: begin
                     if(!m_wvalid) begin
-                        m_wvalid<=1'b1; m_wdata<=data_arr[idx][victim_way][beat]; m_wstrb<=4'hF; m_wlast<=(beat==4'd15);
+                        m_wvalid<=1'b1; m_wdata<=data_arr[idx][victim_way][beat]; m_wstrb<=4'hF; m_wlast<=(beat==3'd7);
                     end else if (m_wvalid && m_wready) begin
                         m_wvalid<=0; beat<=beat+1'b1;
-                        if (beat==4'd15) begin m_bready<=1'b1; st<=WB_B; end
+                        if (beat==3'd7) begin m_bready<=1'b1; st<=WB_B; end
                     end
                 end
                 WB_B: begin
@@ -231,8 +231,8 @@ module l2_cache (
                         if (m_bresp != `AXI_RESP_OKAY) req_resp <= m_bresp;
                         m_bready<=0;
                         dirty_arr[idx][victim_way] <= 1'b0;
-                        m_araddr <= {req_addr[31:6],6'b0};
-                        m_arid<=4'h3; m_arlen<=8'd15; m_arvalid<=1'b1; st<=RD_AR;
+                        m_araddr <= {req_addr[31:5],5'b0};
+                        m_arid<=4'h3; m_arlen<=8'd7; m_arvalid<=1'b1; st<=RD_AR;
                     end
                 end
                 RD_AR: begin
