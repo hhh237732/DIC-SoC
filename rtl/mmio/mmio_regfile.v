@@ -1,4 +1,4 @@
-`include "../axi4_defines.vh"
+`include "axi4_defines.vh"
 
 // ================================================================
 // Module: mmio_regfile
